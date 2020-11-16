@@ -85,13 +85,269 @@ void Planning::resetCellsTypes()
             c->planType = REGULAR;
         }
     }
-
-
 }
 
 void Planning::updateCellsTypes()
 {
-    Cell* c;
+   // Cell* c;
+    int limiteUL[2],limiteUR[2],limiteDL[2];
+    int limiarOCCtoFREE = 3;
+    int limiarFREEtoOCC = 8;
+    int xL,xR,yU,yD;
+
+    limiteUL[0] = robotPosition.x-maxUpdateRange;
+    limiteUL[1] = robotPosition.y+maxUpdateRange;
+    limiteUR[0] = robotPosition.x+maxUpdateRange;
+    limiteDL[1] = robotPosition.y-maxUpdateRange;
+
+    //usando HIMM como base
+//c->planType = FRONTIER;
+   // printf("y=%f\n",maxUpdateRange);
+
+    for (int y = limiteUL[1]; y >= limiteDL[1]; y--)
+    {
+        for (int x = limiteUL[0]; x <= limiteUR[0]; x++)
+        {
+           // printf("x=%d\n",x);
+            Cell* c  = grid->getCell(x,y);
+            int danger = 0;
+            int x3,y3;
+
+           /* if (c->planType == FRONTIER)
+                printf("esta e front \n");*/
+
+           if (c->occType == UNEXPLORED)
+           {
+
+
+              if (c->occType == UNEXPLORED) //se ainda é unexplored
+              {
+               xL = x-1;
+             //  if (xL < limiteUL[0]) //pra n sair da área de análise
+             //      xL = limiteUL[0];
+               xR = x+1;
+             //  if (xR > limiteUR[0])
+             //      xR = limiteUR[0];
+               yU = y+1;
+             //  if (yU > limiteUL[1])
+             //      yU = limiteUL[1];
+               yD = y-1;
+             //  if (yD < limiteDL[1])
+             //      yD = limiteDL[1];
+
+               int frontier = 0;
+
+               Cell* d =grid->getCell(x,y);
+               //->planType = FRONTIER;
+              // printf("x=%d\n",x);
+
+
+               for (int y2=yU; y2>=yD; y2--)
+               {
+                  for (int x2=xL; x2<=xR; x2++)
+                  {
+                     d = grid->getCell(x2,y2);
+                      //printf("x2=%d\n",x2);
+
+                     if (d->planType == REGULAR && d->occType == FREE)
+                     {
+                         frontier = 1;
+                         c->planType = FRONTIER;
+                         //printf("achei frontier\n");
+                        // break;
+                     }
+
+                     if (d->planType == NEAR_WALLS)
+                     {
+                         frontier = 1;
+                         c->planType = FRONTIER_NEAR_WALL;
+                         //printf("achei frontier\n");
+                         break;
+                     }
+                  }
+                  if (frontier == 1)
+                      break;
+               }
+
+              }
+
+              if (c->himm <= limiarOCCtoFREE)
+              {
+                  c->occType = FREE;
+                  c->planType = REGULAR;
+              }
+              else if (c->himm >= limiarFREEtoOCC)
+              {
+                  c->occType = OCCUPIED;
+                  c->planType = REGULAR;
+              }
+           }
+
+           if (c->occType == FREE)
+           {
+             if(c->himm > limiarFREEtoOCC)
+             {
+               c->occType = OCCUPIED;
+               c->planType = REGULAR;
+             }
+
+             if (c->occType == FREE)
+             {
+                 /*if (c->occType != NEAR_WALLS)
+                 c->planType = REGULAR;*/
+                // c->planType = REGULAR;
+                 xL = x-3;
+                 if (xL < limiteUL[0]) //pra n sair da área de análise
+                     xL = limiteUL[0];
+                 xR = x+3;
+                 if (xR > limiteUR[0])
+                     xR = limiteUR[0];
+                 yU = y+3;
+                 if (yU > limiteUL[1])
+                     yU = limiteUL[1];
+                 yD = y-3;
+                 if (yD < limiteDL[1])
+                     yD = limiteDL[1];
+
+
+                 Cell* d =grid->getCell(x,y);
+                 //->planType = FRONTIER;
+                // printf("x=%d\n",x);
+
+
+
+
+                 for (y3=yU; y3>=yD; y3--)
+                 { int k=0,j=0;
+                    for (x3=xL; x3<=xR; x3++)
+                    {
+                       d = grid->getCell(x3,y3);
+
+                       if (d->occType == OCCUPIED)
+                       {
+                           danger = 1;
+                           c->planType = DANGER;
+                          //  printf("x3=%d, y3=%d\n",x3,y3);
+                           //printf("achei frontier\n");
+                          // c->planType = DANGER;
+                         //  break;
+
+                       }
+                       if (danger == 1)
+                           break;
+                    }
+
+                    if (danger == 1)
+                        break;
+                 }
+                 if (danger == 0 && c->planType == DANGER)
+                     c->planType = REGULAR;
+
+              //   else
+              //     c->planType = REGULAR;
+
+             }
+           }
+           else if (c->occType == OCCUPIED && c->himm <= limiarOCCtoFREE)
+           {
+              c->occType = FREE;
+              c->planType = REGULAR;
+           }
+
+
+           int xL2 = x-4;
+            if (xL2 < limiteUL[0]) //pra n sair da área de análise
+                xL2 = limiteUL[0];
+           int xR2 = x+4;
+            if (xR2 > limiteUR[0])
+                xR2 = limiteUR[0];
+           int yU2 = y+4;
+            if (yU2 > limiteUL[1])
+                yU2 = limiteUL[1];
+           int yD2 = y-4;
+            if (yD2 < limiteDL[1])
+                yD2 = limiteDL[1];
+            //printf("yU2=%d, yD2=%d\n",yU2,yD2);
+
+
+           if (danger == 1)
+           {  //printf("x3=%d, y3=%d\n",x3,y3); exit(0);
+            for (int y4=yU2; y4>=yD2; y4--)
+            {
+               for (int x4=xL2; x4<=xR2; x4++)
+               {
+                   Cell* e = grid->getCell(x4,y4);
+                  // e->planType = DANGER;
+                 /*  if (d->occType == FREE)
+                  d->planType = FRONTIER_NEAR_WALL;*/
+                   //printf("x2=%d\n",x2);
+                  // printf("x4=%d, y4=%d\n",x4,y4); //exit(0);
+                  if (e->occType == FREE &&  e->planType != DANGER)
+                   {
+
+                  /*  if (e->planType == REGULAR)
+                       e->planType = NEAR_WALLS;*/
+                  //  if (danger == 1)
+                    {
+                     if (e->planType == FRONTIER)
+                       e->planType = FRONTIER_NEAR_WALL;
+                    else
+                       e->planType = NEAR_WALLS;
+                    }
+                  /*  else
+                    {
+                     if (e->planType != FRONTIER && e->planType != DANGER)
+                        e->planType = REGULAR;
+                    }*/
+                   }
+
+               }
+
+            }
+           }
+           /*if (danger == 1)
+           {
+            exit(0);
+           }*/
+           int regular = 0;
+         if (c->planType == NEAR_WALLS)
+         {
+           for (int y4=yU2; y4>=yD2; y4--)
+           {
+              for (int x4=xL2; x4<=xR2; x4++)
+              {
+                  Cell* e = grid->getCell(x4,y4);
+                 // e->planType = DANGER;
+                /*  if (d->occType == FREE)
+                 d->planType = FRONTIER_NEAR_WALL;*/
+                  //printf("x2=%d\n",x2);
+                 // printf("x4=%d, y4=%d\n",x4,y4); //exit(0);
+                   {
+                    if (e->planType == DANGER)
+                    {
+                        regular =1;
+                        break;
+                    }
+                   }
+                 /*  else
+                   {
+                    if (e->planType != FRONTIER && e->planType != DANGER)
+                       e->planType = REGULAR;
+                   }*/
+
+
+              }
+              if (regular == 1)
+                  break;
+           }
+           if (regular == 0)
+               c->planType = REGULAR;
+         }
+
+
+
+        }
+    }
 
     // If you want to access all observed cells (since the start), use this range
     //
@@ -125,6 +381,45 @@ void Planning::initializePotentials()
 {
     Cell *c;
 
+    int minX = gridLimits.minX; //+ robotPosition.x;
+    int minY = gridLimits.minY; //+ robotPosition.y;
+    int maxX = gridLimits.maxX; //- robotPosition.x;
+    int maxY = gridLimits.maxY; //- robotPosition.y;
+
+    for(int i = minX; i<maxX; i++)
+    {
+        for(int j = minY; j<maxY; j++)
+        {
+            c = grid->getCell(i,j);
+            if(c->occType == OCCUPIED || c->planType == DANGER)
+            {
+                c->pot[0] = 1;
+                c->pot[1] = 1;
+                c->pot[2] = 1;
+            }
+            else if(c->planType == FRONTIER)
+            {
+                c->pot[0] = 0;
+                c->pot[1] = 0;
+                c->pot[2] = 1;
+            }
+            else if(c->planType == FRONTIER_NEAR_WALL)
+            {
+                c->pot[0] = 0;
+                c->pot[1] = 0;
+                c->pot[2] = 0;
+            }
+
+            if(c->occType == FREE)
+            {
+             if(c->planType == NEAR_WALLS)
+                 c->pref = 0.5;
+             else
+                 c->pref = -0.5;
+            }
+        }
+    }
+
     // the potential of a cell is stored in:
     // c->pot[i]
     // the preference of a cell is stored in:
@@ -146,7 +441,134 @@ void Planning::initializePotentials()
 void Planning::iteratePotentials()
 {
     Cell* c;
-    Cell *left,*right,*up,*down;
+    Cell* n;
+    float left,right,up,down;
+
+    int minX = gridLimits.minX; //+ robotPosition.x;
+    int minY = gridLimits.minY; //+ robotPosition.y;
+    int maxX = gridLimits.maxX; //- robotPosition.x;
+    int maxY = gridLimits.maxY; //- robotPosition.y;
+
+
+    // the update of a FREE cell in position (i,j) will use the potential of the four adjacent cells
+    // where, for example:
+    //     left  = grid->getCell(i-1,j);
+
+
+    // TODO: iterate the potential field in the known map
+    //
+    //  (gridLimits.minX, gridLimits.maxY)  -------  (gridLimits.maxX, gridLimits.maxY)
+    //                  |                     \                      |
+    //                  |                      \                     |
+    //                  |                       \                    |
+    //  (gridLimits.minX, gridLimits.minY)  -------  (gridLimits.maxX, gridLimits.minY)
+
+    for(int i = minX; i<=maxX; i++)
+    {
+        for(int j = minY; j<=maxY; j++)
+        {
+            c = grid->getCell(i,j);
+
+            if(c->occType == FREE)
+            {
+
+                    n = grid->getCell(i,j+1);
+                    up = n->pot[1];
+                    n = grid->getCell(i,j-1);
+                    down = n->pot[1];
+                    n = grid->getCell(i+1,j);
+                    right = n->pot[1];
+                    n = grid->getCell(i-1,j);
+                    left = n->pot[1];
+
+
+                    float result = (up+down+right+left)/4;
+                    float d = fabs((up-down)/2) + fabs((right - left)/2);
+
+
+                    result = result - (c->pref/4)*d;
+                    c->pot[1] = result;
+            }
+        }
+    }
+    for(int i = minX; i<=maxX; i++)
+    {
+        for(int j = minY; j<=maxY; j++)
+        {
+            c = grid->getCell(i,j);
+
+            if(c->occType == FREE)
+            {
+
+                n = grid->getCell(i,j+1);
+                up = n->pot[0];
+                n = grid->getCell(i,j-1);
+                down = n->pot[0];
+                n = grid->getCell(i+1,j);
+                right = n->pot[0];
+                n = grid->getCell(i-1,j);
+                left = n->pot[0];
+                float result = (up+down+right+left)/4;
+                    c->pot[0] = result;
+            }
+        }
+    }
+    for(int i = minX; i<=maxX; i++)
+    {
+        for(int j = minY; j<=maxY; j++)
+        {
+            c = grid->getCell(i,j);
+
+            if(c->occType == FREE)
+            {
+
+                n = grid->getCell(i,j+1);
+                up = n->pot[2];
+                n = grid->getCell(i,j-1);
+                down = n->pot[2];
+                n = grid->getCell(i+1,j);
+                right = n->pot[2];
+                n = grid->getCell(i-1,j);
+                left = n->pot[2];
+                float result = (up+down+right+left)/4;
+                    c->pot[2] = result;
+            }
+        }
+    }
+
+}
+
+void Planning::updateGradient()
+{
+
+    // the components of the descent gradient of a cell are stored in:
+    // c->dirX[i] and c->dirY[i], for pot[i]
+
+    // the gradient of a FREE cell in position (i,j) is computed using the potential of the four adjacent cells
+    // where, for example:
+    //     left  = grid->getCell(i-1,j);
+
+
+    // TODO: compute the gradient of the FREE cells in the known map
+    //
+    //  (gridLimits.minX, gridLimits.maxY)  -------  (gridLimits.maxX, gridLimits.maxY)
+    //                  |                     \                      |
+    //                  |                      \                     |
+    //                  |                       \                    |
+    //  (gridLimits.minX, gridLimits.minY)  -------  (gridLimits.maxX, gridLimits.minY)
+    Cell* c;
+    Cell* n;
+    Cell* n_l;
+    Cell* n_r;
+    Cell* n_u;
+    Cell* n_d;
+    float left,right,up,down;
+
+    int minX = gridLimits.minX;// + robotPosition.x;
+    int minY = gridLimits.minY;// + robotPosition.y;
+    int maxX = gridLimits.maxX;// - robotPosition.x;
+    int maxY = gridLimits.maxY;// - robotPosition.y;
+
 
     // the update of a FREE cell in position (i,j) will use the potential of the four adjacent cells
     // where, for example:
@@ -162,37 +584,135 @@ void Planning::iteratePotentials()
     //  (gridLimits.minX, gridLimits.minY)  -------  (gridLimits.maxX, gridLimits.minY)
 
 
+    for(int i = minX; i<maxX; i++)
+    {
+        for(int j = minY; j<maxY; j++)
+        {
+
+              c = grid->getCell(i,j);
+
+              if(c->occType == FREE)
+              {
+
+                  n_u = n = grid->getCell(i,j+1);
+                  up = n->pot[0];
+                  n_d = n = grid->getCell(i,j-1);
+                  down = n->pot[0];
+                  n_r = n = grid->getCell(i+1,j);
+                  right = n->pot[0];
+                  n_l = n = grid->getCell(i-1,j);
+                  left = n->pot[0];
+
+                  float resultY = -(up-down)/2;
+                  float resultX = -(right-left)/2;
+
+                  float norma = sqrt(pow(resultX,2)+pow(resultY,2));
 
 
+                  if(norma == 0)
+                  {
+                      c->dirX[0] = c->dirY[0] = 0;
+                  }
+                  else
+                  {
+                      c->dirX[0] = resultX/norma;
+                      c->dirY[0] = resultY/norma;
 
+                      c->dirX[0] = (c->dirX[0] + n_u->dirX[0] + n_d->dirX[0] + n_r->dirX[0] + n_l->dirX[0])/5;
+                      c->dirY[0] = (c->dirY[0] + n_u->dirY[0] + n_d->dirY[0] + n_r->dirY[0] + n_l->dirY[0])/5;
+
+                  }
+              }
+              else
+              {
+                    c->dirX[0] = c->dirY[0] = 0;
+              }
+          }
+      }
+
+    for(int i = minX; i<maxX; i++)
+    {
+        for(int j = minY; j<maxY; j++)
+        {
+
+              c = grid->getCell(i,j);
+
+              if(c->occType == FREE)
+              {
+
+                  n_u = n = grid->getCell(i,j+1);
+                  up = n->pot[1];
+                  n_d = n = grid->getCell(i,j-1);
+                  down = n->pot[1];
+                  n_r = n = grid->getCell(i+1,j);
+                  right = n->pot[1];
+                  n_l = n = grid->getCell(i-1,j);
+                  left = n->pot[1];
+
+                  float resultY = -(up-down)/2;
+                  float resultX = -(right-left)/2;
+
+                  float norma = sqrt(pow(resultX,2)+pow(resultY,2));
+
+                  if(norma == 0)
+                  {
+                      c->dirX[1] = c->dirY[1] = 0;
+                  }
+                  else
+                  {
+                      c->dirX[1] = resultX/norma;
+                      c->dirY[1] = resultY/norma;
+                      c->dirX[1] = (c->dirX[1] + n_u->dirX[1] + n_d->dirX[1] + n_r->dirX[1] + n_l->dirX[1])/5;
+                      c->dirY[1] = (c->dirY[1] + n_u->dirY[1] + n_d->dirY[1] + n_r->dirY[1] + n_l->dirY[1])/5;
+                  }
+              }
+              else
+              {
+                  c->dirX[1] = c->dirY[1] = 0;
+              }
+          }
+      }
+    for(int i = minX; i<maxX; i++)
+    {
+        for(int j = minY; j<maxY; j++)
+        {
+
+              c = grid->getCell(i,j);
+
+              if(c->occType == FREE)
+              {
+
+                  n_u = n = grid->getCell(i,j+1);
+                  up = n->pot[2];
+                  n_u = n = grid->getCell(i,j-1);
+                  down = n->pot[2];
+                  n_u = n = grid->getCell(i+1,j);
+                  right = n->pot[2];
+                  n_u = n = grid->getCell(i-1,j);
+                  left = n->pot[2];
+
+                  float resultY = -(up-down)/2;
+                  float resultX = -(right-left)/2;
+
+                  float norma = sqrt(pow(resultX,2)+pow(resultY,2));
+
+                  if(norma == 0)
+                  {
+                      c->dirX[2] = c->dirY[2] = 0;
+                  }
+                  else
+                  {
+                      c->dirX[2] = resultX/norma;
+                      c->dirY[2] = resultY/norma;
+                      c->dirX[2] = pow(((c->dirX[2] + n_u->dirX[2] + n_d->dirX[2] + n_r->dirX[2] + n_l->dirX[2])/5),2);
+                      c->dirY[2] = pow((c->dirY[2] + n_u->dirY[2] + n_d->dirY[2] + n_r->dirY[2] + n_l->dirY[2])/5,2);
+                  }
+              }
+              else
+              {
+                  c->dirX[2] = c->dirY[2] = 0;
+              }
+          }
+      }
 }
 
-void Planning::updateGradient()
-{
-    Cell* c;
-
-    // the components of the descent gradient of a cell are stored in:
-    // c->dirX[i] and c->dirY[i], for pot[i]
-
-    Cell *left,*right,*up,*down;
-
-    // the gradient of a FREE cell in position (i,j) is computed using the potential of the four adjacent cells
-    // where, for example:
-    //     left  = grid->getCell(i-1,j);
-
-
-    // TODO: compute the gradient of the FREE cells in the known map
-    //
-    //  (gridLimits.minX, gridLimits.maxY)  -------  (gridLimits.maxX, gridLimits.maxY)
-    //                  |                     \                      |
-    //                  |                      \                     |
-    //                  |                       \                    |
-    //  (gridLimits.minX, gridLimits.minY)  -------  (gridLimits.maxX, gridLimits.minY)
-
-
-
-
-
-
-
-}
