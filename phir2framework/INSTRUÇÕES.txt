@@ -70,9 +70,6 @@ _______________________________________________________________________________
 2 : controle manual velocidade linear (CIMA e BAIXO) e vel. angular (ESQ e DIR)
 3 : avoid obstacles
 4 : wall following
-5 : potential field A
-6 : potential field B
-7 : potential field C
 
 CIMA, BAIXO, ESQ, DIR : move o robô
 
@@ -83,7 +80,6 @@ L     : fixa a camera novamente sobre o robô, ou deixa a camera fixa no ponto a
 
 V e B : altera visualização do mapa
 R     : altera visualização dos sensores (sonar cone -> sonar linha -> laser linha -> laser area -> somente robô) 
-F     : mostra gradiente do campo potencial
 G     : mostra valor associado a cada celula do mapa
 
 ESC   : fecha programa
