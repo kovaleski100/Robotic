@@ -87,11 +87,11 @@ void Planning::resetCellsTypes()
     }
 
 
-                     }
+}
 
-                     if (d->planType == NEAR_WALLS)
-                     {
-                         frontier = 1;
+void Planning::updateCellsTypes()
+{
+    Cell* c;
 
     // If you want to access all observed cells (since the start), use this range
     //
@@ -146,7 +146,7 @@ void Planning::initializePotentials()
 void Planning::iteratePotentials()
 {
     Cell* c;
-    Cell* n;
+    Cell *left,*right,*up,*down;
 
     // the update of a FREE cell in position (i,j) will use the potential of the four adjacent cells
     // where, for example:
@@ -169,10 +169,12 @@ void Planning::iteratePotentials()
 
 void Planning::updateGradient()
 {
+    Cell* c;
 
     // the components of the descent gradient of a cell are stored in:
     // c->dirX[i] and c->dirY[i], for pot[i]
 
+    Cell *left,*right,*up,*down;
 
     // the gradient of a FREE cell in position (i,j) is computed using the potential of the four adjacent cells
     // where, for example:
@@ -193,4 +195,4 @@ void Planning::updateGradient()
 
 
 
-                  }
+}

@@ -47,8 +47,6 @@ Robot::~Robot()
 void Robot::initialize(ConnectionMode cmode, LogMode lmode, std::string fname, std::string mapName)
 {
     logMode_ = lmode;
-//    logFile_ = new LogFile(logMode_,fname);
-    ready_ = true;
 
     mcl = new MCL(base.getMaxLaserRange(),mapName,grid->mutex);
 
@@ -225,47 +223,11 @@ void Robot::followPotentialField(int t)
     int robotX=currentPose_.x*scale;
     int robotY=currentPose_.y*scale;
     float robotAngle = currentPose_.theta;
-    float Tp= 0.01;
-    float alpha = 50;
 
     // how to access the grid cell associated to the robot position
     Cell* c=grid->getCell(robotX,robotY);
 
-    float phi=0;
-
-    int robX1 = robotX-1;
-    int robX2 = robotX+1;
-    int robY1 = robotY-1;
-    int robY2 = robotY+1;
-
-    /*
-    for(int j = robotY-1; j<=robotY+1; j++)
-    {
-        for(int i = robotX-1; i <= robotX+1; i++)
-        {
-            Cell* c=grid->getCell(i,j);
-            //printf("xxxxxxxxxxxxxxxxxxxxxxx");
-            phi = phi + RAD2DEG(atan2(c->dirY[t], c->dirX[t])) - robotAngle;
-        }
-    }
-    */
-    // printf("xxxxxxxxxxxxxxxxxxxxxxx");
-    phi = phi + RAD2DEG(atan2(c->dirY[t], c->dirX[t])) - robotAngle;
-    //phi = phi/9;
-
-
-    //phi = RAD2DEG(atan2(c->dirY[t], c->dirX[t])) - robotAngle;
-    phi = normalizeAngleDEG(phi);
-
-
     float linVel, angVel;
-
-    angVel = Tp*phi;
-
-    if ((phi > alpha) || (phi < -alpha))
-        linVel = 0;
-    else
-        linVel = 0.3;
 
     // TODO: define the robot velocities using a control strategy
     //       based on the direction of the gradient of c given by c->dirX[t] and c->dirY[t]
