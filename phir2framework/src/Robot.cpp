@@ -223,11 +223,46 @@ void Robot::followPotentialField(int t)
     int robotX=currentPose_.x*scale;
     int robotY=currentPose_.y*scale;
     float robotAngle = currentPose_.theta;
+    float Tp= 0.01;
+    float alpha = 40;
 
     // how to access the grid cell associated to the robot position
     Cell* c=grid->getCell(robotX,robotY);
 
+    float phi=0;
+
+ /*   for(int j = robotY-1; j<=robotY+1; j++)
+    {
+        for(int i = robotX-1; i <= robotX+1; i++)
+        {
+            Cell* c=grid->getCell(i,j);
+            //printf("xxxxxxxxxxxxxxxxxxxxxxx");
+            phi = phi + RAD2DEG(atan2(c->dirY[t], c->dirX[t])) - robotAngle;
+        }
+    }
+
+    phi = phi/9;*/
+
+
+    phi = RAD2DEG(atan2(c->dirY[t], c->dirX[t])) - robotAngle;
+    phi = normalizeAngleDEG(phi);
+
+
     float linVel, angVel;
+
+    angVel = Tp*phi;
+
+    //printf("angVel = %f\n", angVel);
+    if ((angVel > 0.7))
+        angVel = 0.7;
+    else if ((angVel < -0.7))
+        angVel = -0.7;
+
+
+    if ((phi > alpha) || (phi < -alpha))
+        linVel = 0;
+    else
+        linVel = 0.3;
 
     // TODO: define the robot velocities using a control strategy
     //       based on the direction of the gradient of c given by c->dirX[t] and c->dirY[t]
@@ -310,11 +345,71 @@ void Robot::mappingWithHIMMUsingLaser()
 {
     float lambda_r = 0.2; //  20 cm
     float lambda_phi = 1.0;  // 1 degree
+    int scale = grid->getMapScale();
+    float maxRange = base.getMaxLaserRange();
+    int maxRangeInt = maxRange*scale;
+
+    int robotX=currentPose_.x*scale;
+    int robotY=currentPose_.y*scale;
+    float robotAngle = currentPose_.theta;
 
     // TODO: update cells in the sensors' field-of-view
     // Follow the example in mappingWithLogOddsUsingLaser()
+    int limiteUL[2],limiteUR[2],limiteDL[2],limiteDR[2];
+    limiteUL[0] = robotX-maxRangeInt;
+    limiteUL[1] = robotY+maxRangeInt;
+    limiteUR[0] = robotX+maxRangeInt;
+    limiteUR[1] = robotY+maxRangeInt;
+    limiteDL[0] = robotX-maxRangeInt;
+    limiteDL[1] = robotY-maxRangeInt;
+    limiteDR[0] = robotX+maxRangeInt;
+    limiteDR[1] = robotY-maxRangeInt;
+
+    //Cell* c=grid->getCell(x,y);
+   // printf("ULx = %d, URx = %d\n", limiteUL[0],limiteUR[0]);
+    int free = -1;
+    int occ = 3;
 
 
+
+    for (int y = limiteUL[1]; y >= limiteDL[1]; y--)
+    {
+        float result=0; //mudar para iniciar com valor deconhecido
+        for (int x = limiteUL[0]; x <= limiteUR[0]; x++)
+        {
+             //printf("Cel x = %d, y = %d\n", x,y);
+            /*Cell *d = grid->getCell(x,y);
+            d->planType = FRONTIER;*/
+
+             float powX = pow(x-robotX,2);
+             float powY = pow(y-robotY,2);
+             float r = sqrt(powX+powY)/scale;
+             float phi = normalizeAngleDEG(57.2958*atan2(y-robotY,x-robotX)-robotAngle);
+             int nearestLaser = base.getNearestLaserBeam(phi);
+             float k = base.getAngleOfLaserBeam(nearestLaser);
+             float nlReading = base.getKthLaserReading(nearestLaser);
+
+             if ((r>maxRange || r>(nlReading+(lambda_r/2))) || (fabs(phi-k)>(lambda_phi/2)))
+                 result = 0;
+             else if (nlReading<maxRange && (fabs(r-nlReading)<(lambda_r/2)))
+                 result = occ;
+             else if (r<=nlReading)
+                 result = free;
+
+
+             if (result != 0)
+             {
+                 Cell* c=grid->getCell(x,y);
+                 int chance = c->himm + result;
+                 if (chance <0)
+                     chance = 0;
+                 else if (chance > 15)
+                     chance = 15;
+                 c->himm = chance;
+             }
+
+        }
+    }
 
 
 }
