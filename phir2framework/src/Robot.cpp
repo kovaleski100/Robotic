@@ -14,8 +14,10 @@ Robot::Robot()
 {
     ready_ = false;
     running_ = true;
+    firstIteration = true;
 
     grid = new Grid();
+    mcl = NULL;
 
     plan = new Planning();
     plan->setGrid(grid);
@@ -42,11 +44,13 @@ Robot::~Robot()
 ///// INITIALIZE & RUN METHODS /////
 ////////////////////////////////////
 
-void Robot::initialize(ConnectionMode cmode, LogMode lmode, std::string fname)
+void Robot::initialize(ConnectionMode cmode, LogMode lmode, std::string fname, std::string mapName)
 {
     logMode_ = lmode;
 //    logFile_ = new LogFile(logMode_,fname);
     ready_ = true;
+
+    mcl = new MCL(base.getMaxLaserRange(),mapName,grid->mutex);
 
     // initialize ARIA
     if(logMode_!=PLAYBACK){
@@ -82,7 +86,26 @@ void Robot::run()
             base.writeOnLog();
     }
 
-    currentPose_ = base.getOdometry();
+    Pose odometry = base.getOdometry();
+    if(firstIteration){
+        prevLocalizationPose_ = odometry;
+        firstIteration = false;
+    }
+
+    Action u;
+    u.rot1 = atan2(odometry.y-prevLocalizationPose_.y,odometry.x-prevLocalizationPose_.x)-DEG2RAD(odometry.theta);
+    u.trans = sqrt(pow(odometry.x-prevLocalizationPose_.x,2)+pow(odometry.y-prevLocalizationPose_.y,2));
+    u.rot2 = DEG2RAD(odometry.theta)-DEG2RAD(prevLocalizationPose_.theta)-u.rot1;
+
+    // check if there is enough robot motion
+    if(u.trans > 0.1 || fabs(u.rot1) > DEG2RAD(30) || fabs(u.rot2) > DEG2RAD(30))
+    {
+        std::cout << currentPose_ << std::endl;
+        mcl->run(u,base.getLaserReadings());
+        prevLocalizationPose_ = odometry;
+    }
+
+    currentPose_ = odometry;
 
     pthread_mutex_lock(grid->mutex);
 
@@ -97,7 +120,7 @@ void Robot::run()
 
     // Save path traversed by the robot
     if(base.isMoving() || logMode_==PLAYBACK){
-        path_.push_back(base.getOdometry());
+        path_.push_back(currentPose_);
     }
 
     // Navigation
@@ -280,75 +303,17 @@ void Robot::mappingWithLogOddsUsingLaser()
     int robotX=currentPose_.x*scale;
     int robotY=currentPose_.y*scale;
     float robotAngle = currentPose_.theta;
-    // base.getMaxLaserRange()*scale = numero de células
 
     // how to access a grid cell:
-    //Cell* d=grid->getCell(robotX,robotY+20);
-    //printf("robot x = %d, y = %d, angle = %f, scale = %d\n", robotX,robotY,robotAngle,scale);
-    //d->occupancy = 0.1;
-
-    //logodds = (c->logodds) + getLogOddsFromOccupanc
+//    Cell* c=grid->getCell(robotX,robotY);
 
     // access log-odds value of variable in c->logodds
     // how to convert logodds to occupancy values:
 //    c->occupancy = getOccupancyFromLogOdds(c->logodds);
 
     // TODO: define fixed values of occupancy
-    float locc = 0.75;
-    float lfree = 0.25;
+    float locc, lfree;
 
-
- //determinando campo de visão
-    //int numCells = maxRange*scale;
-    int limiteUL[2],limiteUR[2],limiteDL[2],limiteDR[2];
-    limiteUL[0] = robotX-maxRangeInt;
-    limiteUL[1] = robotY+maxRangeInt;
-    limiteUR[0] = robotX+maxRangeInt;
-    limiteUR[1] = robotY+maxRangeInt;
-    limiteDL[0] = robotX-maxRangeInt;
-    limiteDL[1] = robotY-maxRangeInt;
-    limiteDR[0] = robotX+maxRangeInt;
-    limiteDR[1] = robotY-maxRangeInt;
-
-    //Cell* c=grid->getCell(x,y);
-   // printf("ULx = %d, URx = %d\n", limiteUL[0],limiteUR[0]);
-
-
-    for (int y = limiteUL[1]; y >= limiteDL[1]; y--)
-    {
-        float result=0; //mudar para iniciar com valor deconhecido
-        for (int x = limiteUL[0]; x <= limiteUR[0]; x++)
-        {
-             float powX = pow(x-robotX,2);
-             float powY = pow(y-robotY,2);
-             float r = sqrt(powX+powY)/scale;
-
-             /*float arcTan2 = x-robotX;
-             if (arcTan2 == 0)
-                 arcTan2=0.0001;*/
-
-             float phi = ((57.2958*atan2(y-robotY,x-robotX))-robotAngle);
-             phi = normalizeAngleDEG(phi);
-             int nearestLaser = base.getNearestLaserBeam(phi);
-             float k = base.getAngleOfLaserBeam(nearestLaser);
-             float nlReading = base.getKthLaserReading(nearestLaser);
-
-             if (r>std::min(maxRange, nlReading+(lambda_r/2)) || ((fabs(phi-k))>(lambda_phi/2)))
-                 result = 0.0;
-             else if (nlReading<maxRange && (fabs(r-nlReading)<(lambda_r/2)))
-                 result = locc;
-             else if (r<=nlReading)
-                 result = lfree;
-
-             if (result != 0.0)
-             {
-                 Cell* c=grid->getCell(x,y);
-                 float logodds = (c->logodds) + getLogOddsFromOccupancy(result);
-                 c->logodds = logodds;
-                 c->occupancy = getOccupancyFromLogOdds(logodds);
-             }
-        }
-    }
 
 
     // TODO: update cells in the sensors' field-of-view
@@ -361,6 +326,9 @@ void Robot::mappingWithLogOddsUsingLaser()
     //                     |                        \                        |
     //                     |                         \                       |
     //  (robotX-maxRangeInt,robotY-maxRangeInt)  -------  (robotX+maxRangeInt,robotY-maxRangeInt)
+
+
+
 
 }
 
@@ -380,71 +348,11 @@ void Robot::mappingWithHIMMUsingLaser()
 {
     float lambda_r = 0.2; //  20 cm
     float lambda_phi = 1.0;  // 1 degree
-    int scale = grid->getMapScale();
-    float maxRange = base.getMaxLaserRange();
-    int maxRangeInt = maxRange*scale;
-
-    int robotX=currentPose_.x*scale;
-    int robotY=currentPose_.y*scale;
-    float robotAngle = currentPose_.theta;
 
     // TODO: update cells in the sensors' field-of-view
     // Follow the example in mappingWithLogOddsUsingLaser()
-    int limiteUL[2],limiteUR[2],limiteDL[2],limiteDR[2];
-    limiteUL[0] = robotX-maxRangeInt;
-    limiteUL[1] = robotY+maxRangeInt;
-    limiteUR[0] = robotX+maxRangeInt;
-    limiteUR[1] = robotY+maxRangeInt;
-    limiteDL[0] = robotX-maxRangeInt;
-    limiteDL[1] = robotY-maxRangeInt;
-    limiteDR[0] = robotX+maxRangeInt;
-    limiteDR[1] = robotY-maxRangeInt;
-
-    //Cell* c=grid->getCell(x,y);
-   // printf("ULx = %d, URx = %d\n", limiteUL[0],limiteUR[0]);
-    int free = -1;
-    int occ = 3;
 
 
-
-    for (int y = limiteUL[1]; y >= limiteDL[1]; y--)
-    {
-        float result=0; //mudar para iniciar com valor deconhecido
-        for (int x = limiteUL[0]; x <= limiteUR[0]; x++)
-        {
-             //printf("Cel x = %d, y = %d\n", x,y);
-            /*Cell *d = grid->getCell(x,y);
-            d->planType = FRONTIER;*/
-
-             float powX = pow(x-robotX,2);
-             float powY = pow(y-robotY,2);
-             float r = sqrt(powX+powY)/scale;
-             float phi = normalizeAngleDEG(57.2958*atan2(y-robotY,x-robotX)-robotAngle);
-             int nearestLaser = base.getNearestLaserBeam(phi);
-             float k = base.getAngleOfLaserBeam(nearestLaser);
-             float nlReading = base.getKthLaserReading(nearestLaser);
-
-             if ((r>maxRange || r>(nlReading+(lambda_r/2))) || (fabs(phi-k)>(lambda_phi/2)))
-                 result = 0;
-             else if (nlReading<maxRange && (fabs(r-nlReading)<(lambda_r/2)))
-                 result = occ;
-             else if (r<=nlReading)
-                 result = free;
-
-
-             if (result != 0)
-             {
-                 Cell* c=grid->getCell(x,y);
-                 int chance = c->himm + result;
-                 if (chance <0)
-                     chance = 0;
-                 else if (chance > 15)
-                     chance = 15;
-                 c->himm = chance;
-             }
-
-        }
-    }
 
 
 }
@@ -474,6 +382,13 @@ bool Robot::readFromLog() {
     base.setLaserReadings(logFile_->readSensors("Laser"));
 
     return false;
+}
+
+Pose Robot::readInitialPose()
+{
+    Pose p = logFile_->readPose("Start");
+    p.theta = DEG2RAD(p.theta);
+    return p;
 }
 
 ////////////////////////
@@ -522,6 +437,11 @@ bool Robot::isRunning()
 const Pose& Robot::getCurrentPose()
 {
     return currentPose_;
+}
+
+void Robot::drawMCL()
+{
+    mcl->draw(grid->viewMode-6);
 }
 
 void Robot::drawPath()
